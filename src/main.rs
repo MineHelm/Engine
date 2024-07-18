@@ -50,11 +50,11 @@ async fn main() -> Result<(), impl Error> {
         let cors = Cors::permissive(); // Temporary
 
         App::new()
-            .document(spec)
             .wrap(Logger::default())
             .wrap(cors)
             .app_data(db.clone())
             .app_data(config.clone())
+            .document(spec)
             .route("/ping", web::get().to(ping_handler))
             .service(routes::handlers())
             .build_with(

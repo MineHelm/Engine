@@ -1,15 +1,15 @@
 use actix_web::{cookie::Cookie, http::StatusCode, web::{Data, Json}, HttpResponse};
-use apistos::{api_operation, web::{self, Scope}};
+use apistos::{api_operation, web::{self, resource, Scope}};
 use serde_json::json;
 
 use crate::{config::MHConfig, database::DB, error::{ApiError, Result}, services::{keys::{ApiKey, KeyTags}, users::CreateUserPayload, UsersService}};
 
 pub fn handlers() -> Scope {
     web::scope("/onboarding")
-        .route("/check", web::get().to(handle_onboarding_check))
-        .route("/create_admin", web::post().to(handle_create_admin))
-        .route("/select_engine", web::post().to(handle_select_engine))
-        .route("/finish", web::post().to(handle_finish_onboarding))
+        .service(resource("/check").route(web::get().to(handle_onboarding_check)))
+        .service(resource("/create_admin").route(web::post().to(handle_create_admin)))
+        .service(resource("/select_engine").route(web::post().to(handle_select_engine)))
+        .service(resource("/finish").route(web::post().to(handle_finish_onboarding)))
 }
 
 #[api_operation(
