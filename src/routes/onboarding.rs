@@ -1,4 +1,4 @@
-use actix_web::{http::StatusCode, web::{Data, Json}, HttpResponse};
+use actix_web::{cookie::Cookie, http::StatusCode, web::{Data, Json}, HttpResponse};
 use apistos::{api_operation, web::{self, Scope}};
 use serde_json::json;
 
@@ -78,9 +78,16 @@ async fn handle_create_admin(
     let created_user = UsersService::create_user(db.pool(), &payload, KeyTags::ADMIN)
         .await?;
 
-    Ok(HttpResponse::Ok().json(
-        created_user
-    ))
+    Ok(HttpResponse::Ok()
+        .cookie(
+            Cookie::build("API_KEY", created_user.key.as_str())
+                .http_only(true)
+                .secure(true)
+                .permanent()
+                .finish()
+        )
+        .json(created_user)
+    )
 }
 
 #[api_operation(
