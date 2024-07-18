@@ -1,14 +1,18 @@
 use std::{error::Error, net::Ipv4Addr};
 
+use actix_cors::Cors;
 use actix_web::{middleware::Logger, App, HttpResponse, HttpServer, Responder};
 use apistos::{api_operation, app::{BuildConfig, OpenApiWrapper}, info::Info, spec::Spec, web, SwaggerUIConfig};
 use sqlx::postgres::PgPoolOptions;
 
 use database::DB;
+use config::{MHConfig, MineHelmConfig};
 
 pub(crate) mod error;
 pub(crate) mod database;
 pub(crate) mod services;
+pub(crate) mod config;
+pub(crate) mod engine;
 mod routes;
 
 #[actix_web::main]
@@ -27,7 +31,9 @@ async fn main() -> Result<(), impl Error> {
         .run(&pool)
         .await.expect("Failed to migrate database");
 
-    let db = DB::new(pool);
+    let db = actix_web::web::Data::new(DB::new(pool));
+    let config = MineHelmConfig::load_or_init();
+    let config = actix_web::web::Data::new(MHConfig::new(config));
 
     log::info!("Starting MineHelm Engine on port 7241");
     HttpServer::new(move || {
@@ -41,10 +47,14 @@ async fn main() -> Result<(), impl Error> {
             ..Default::default()
         };
 
+        let cors = Cors::permissive(); // Temporary
+
         App::new()
             .document(spec)
             .wrap(Logger::default())
-            .app_data(actix_web::web::Data::new(db.clone()))
+            .wrap(cors)
+            .app_data(db.clone())
+            .app_data(config.clone())
             .route("/ping", web::get().to(ping_handler))
             .service(routes::handlers())
             .build_with(
