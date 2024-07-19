@@ -2,7 +2,7 @@ use actix_web::{cookie::Cookie, http::StatusCode, web::{Data, Json}, HttpRespons
 use apistos::{api_operation, web::{self, resource, Scope}};
 use serde_json::json;
 
-use crate::{config::MHConfig, database::DB, error::{ApiError, Result}, services::{keys::{ApiKey, KeyTags}, users::CreateUserPayload, UsersService}};
+use crate::{config::MHConfig, database::DB, error::{ApiError, Result}, services::{keys::KeyTags, users::CreateUserPayload, UsersService}};
 
 pub fn handlers() -> Scope {
     web::scope("/onboarding")
@@ -97,14 +97,14 @@ async fn handle_create_admin(
 )]
 async fn handle_onboarding_check(
     config: Data<MHConfig>
-) -> Result<HttpResponse> {
+) -> HttpResponse {
     if !config.read().is_onboarded {
-        Ok(HttpResponse::Ok().json(json!({
+        HttpResponse::Ok().json(json!({
             "shouldOnboard": true,
-        })))
+        }))
     } else {
-        Ok(HttpResponse::Ok().json(json!({
+        HttpResponse::Ok().json(json!({
             "shouldOnboard": false
-        })))
+        }))
     }
 }

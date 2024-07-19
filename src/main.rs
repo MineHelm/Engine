@@ -2,11 +2,12 @@ use std::{error::Error, net::Ipv4Addr};
 
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, App, HttpResponse, HttpServer, Responder};
-use apistos::{api_operation, app::{BuildConfig, OpenApiWrapper}, info::Info, spec::Spec, web, SwaggerUIConfig};
+use apistos::{api_operation, app::{BuildConfig, OpenApiWrapper}, info::Info, spec::Spec, web::{self, scope}, SwaggerUIConfig};
 use sqlx::postgres::PgPoolOptions;
 
 use database::DB;
 use config::{MHConfig, MineHelmConfig};
+use engine::ServerEngine;
 
 pub(crate) mod error;
 pub(crate) mod database;
@@ -33,6 +34,18 @@ async fn main() -> Result<(), impl Error> {
 
     let db = actix_web::web::Data::new(DB::new(pool));
     let config = MineHelmConfig::load_or_init();
+
+    let engine = if config.is_onboarded {
+        let engine = ServerEngine::new(config.engine);
+        if let Err(err) = engine.healthcheck().await {
+            log::error!("Engine healthcheck failed: {err}");
+            return Ok(());
+        } else {
+            log::info!("Engine healthcheck success");
+        }
+        Some(actix_web::web::Data::new(engine))
+    } else { None };
+
     let config = actix_web::web::Data::new(MHConfig::new(config));
 
     log::info!("Starting MineHelm Engine on port 7241");
@@ -49,14 +62,22 @@ async fn main() -> Result<(), impl Error> {
 
         let cors = Cors::permissive(); // Temporary
 
-        App::new()
+        let mut app = App::new()
+            .document(spec)
             .wrap(Logger::default())
             .wrap(cors)
             .app_data(db.clone())
-            .app_data(config.clone())
-            .document(spec)
-            .route("/ping", web::get().to(ping_handler))
-            .service(routes::handlers())
+            .app_data(config.clone());
+
+        if let Some(ref engine) = engine {
+            app = app.app_data(engine.clone());
+        }
+
+        app.service(
+                scope("/v1")
+                    .route("/ping", web::get().to(ping_handler))
+                    .service(routes::handlers())
+            )
             .build_with(
                 "/openapi.json",
                 BuildConfig::default()

@@ -3,14 +3,21 @@ use apistos::ApiErrorComponent;
 use serde_json::json;
 
 #[derive(thiserror::Error, Debug, ApiErrorComponent)]
-#[openapi_error(status(code = 500))]
+#[openapi_error(
+    status(code = 500),
+    status(code = 500),
+    status(code = 400),
+    status(code = 500)
+)]
 pub enum ApiError {
     #[error("An unspecified internal error has occured: {0}")]
     Generic(#[from] anyhow::Error),
     #[error("Database error has occured: {0}")]
     Database(#[from] sqlx::Error),
     #[error("{1}")]
-    Message(StatusCode, String)
+    Message(StatusCode, String),
+    #[error("Docker error occured: {0}")]
+    Docker(#[from] docker_api::Error),
 }
 
 impl ApiError {

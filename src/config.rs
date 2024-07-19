@@ -18,11 +18,11 @@ impl MHConfig {
         self.0.write().expect("Failed to lock write guard on configuration.")
     }
 
-    pub fn update<F>(&self, update_fn: F)
+    pub fn update<F>(&self, update_fn: F) -> bool
     where F: FnOnce(&mut MineHelmConfig) -> () {
         let mut cfg = self.write();
         update_fn(&mut *cfg);
-        cfg.try_save();
+        cfg.try_save()
     }
 }
 
@@ -32,7 +32,7 @@ pub(crate) struct MineHelmConfig {
     pub(crate) is_onboarded: bool,
     pub(crate) engine: ContainerEngineKind,
 
-    #[serde(skip)]
+    #[serde(skip, default="default_config_path_")]
     config_path: PathBuf
 }
 
@@ -42,11 +42,15 @@ impl Default for MineHelmConfig {
             is_onboarded: false,
             engine: ContainerEngineKind::Docker,
 
-            config_path: std::env::var("CONFIG_PATH")
-                .unwrap_or("~/.config/MineHelm/config.json".to_string())
-                .into(),
+            config_path: default_config_path_()
         }
     }
+}
+
+fn default_config_path_() -> PathBuf {
+    std::env::var("CONFIG_PATH")
+        .unwrap_or("~/.config/MineHelm/config.json".to_string())
+        .into()
 }
 
 impl MineHelmConfig {
@@ -66,8 +70,20 @@ impl MineHelmConfig {
     }
 
     pub fn try_save(&self) -> bool {
-        let Ok(file) = fs::File::create(self.config_path.as_path()) else { return false };
-        let Ok(_) = serde_json::to_writer_pretty(file, self) else { return false };
+        let file = match fs::File::create(self.config_path.as_path()) { 
+            Ok(file) => file,
+            Err(err) => {
+                log::warn!("Failed to open file {:?}: {err}", self.config_path);
+                return false;
+            }
+        };
+        match serde_json::to_writer_pretty(file, self) { 
+            Ok(_) => {},
+            Err(err) => {
+                log::warn!("Failed to serialize config: {err}");
+                return false;
+            }
+        };
         true
     }
 }
