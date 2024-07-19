@@ -19,7 +19,7 @@ mod routes;
 #[actix_web::main]
 async fn main() -> Result<(), impl Error> {
     std::env::set_var("RUST_LOG", "info");
-    dotenvy::dotenv().expect("Failed to load .env");
+    let _ = dotenvy::dotenv(); // Maybe there is no .env
     env_logger::init();
 
     let pool = PgPoolOptions::new()
@@ -75,7 +75,7 @@ async fn main() -> Result<(), impl Error> {
 
         app.service(
                 scope("/v1")
-                    .route("/ping", web::get().to(ping_handler))
+                    .service(web::resource("/ping").route(web::get().to(ping_handler)))
                     .service(routes::handlers())
             )
             .build_with(

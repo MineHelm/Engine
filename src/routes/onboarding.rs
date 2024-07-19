@@ -22,7 +22,7 @@ async fn handle_finish_onboarding(
 ) -> Result<HttpResponse> {
     config.update(|cfg| cfg.is_onboarded = true);
     // TODO: restart instead of killing program
-    std::process::exit(0)
+    std::process::exit(1)
 }
 
 #[derive(serde::Deserialize, schemars::JsonSchema, apistos::ApiComponent)]
